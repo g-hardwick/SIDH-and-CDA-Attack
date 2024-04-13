@@ -1,0 +1,460 @@
+import random
+
+# Calculates the S point on a curve
+# Parameters: P (point): a point on the elliptic curve, k (int): a secert scalar value, Q (point): another point on the elliptic curve
+# Returns: Point: the result of the computation
+def computeS(P,k,Q):
+    return P+k*Q
+
+# Calculates the alpha (used for Alice)
+# Parameters: S (point): the calculated point on the elliptic curve, e (int): the exponent
+# Returns: int: the calculated alpha value
+def computeAlpha(S,e):
+    R=(2^e)*S
+    alpha=R[0]
+    return alpha
+
+# Calculates the alpha (used for Bob)
+# Parameters: S (point): the calculated point on the elliptic curve, e (int): the exponent
+# Returns: int: the calculated beta value
+def computeBeta(S,e):
+    R=(3^e)*S
+    beta=R[0]
+    return beta
+
+# Compute the Phi for the isogeny on the x-coordinate of a point
+# Parameters: x (int): the x-coordinate of the point, alpha (int): the alpha value, or False, beta (int): the beta value, or False
+# Returns: int: the computed Phi value
+def computePhi(x,alpha,beta):
+    if beta is False:
+        return x*(alpha*x - 1)/(x - alpha)
+    if alpha is False:
+        return (x*(beta*x - 1)^2)/(x - beta)^2
+
+# Compute the derivative Phi' for the isogeny on the y-coordinate of a point
+# Parameters: x (int): the x-coordinate of the point, alpha (int): the alpha value, or False, beta (int): the beta value, or False
+# Returns: int: the computed Phi' value
+def computeDerivativePhi(x, alpha, beta):
+    if beta is False:
+        return (alpha*(x^2-2*alpha*x+1))/((x-alpha)^2)
+    if alpha is False:
+        return -(3*beta^3*x^2-beta^2*x*(x^2+4)+beta+x)/((x-beta)^3)
+
+# Computes the a' value
+# Parameters: alpha (int): the alpha value, or False, beta (int): the beta value, or False, a (int): the former a value, or False
+# Returns: int: The computed a' value
+def computeA(alpha, beta, a):
+    if beta is False:
+        return 2*(1-2*(alpha)^2)
+    if alpha is False:
+        return (a*beta-6*(beta^2)+6)*beta
+
+# Calculate the updated x value for a point going through an isogeny
+# Parameters: point (Point): The point on the elliptic curve, alpha (int): The alpha value, or False, beta (int): The beta value, or False
+# Returns: int: The updated x value
+def updateX(point, alpha, beta):
+    return computePhi(point[0], alpha, beta)
+
+# Calculate the updated y value for a point going through an isogeny
+# Parameters: point (Point): The point on the elliptic curve, alpha (int): The alpha value, or False, beta (int): The beta value, or False, c (int): A coefficient
+# Returns: int: The updated y value
+def updateY(point, alpha, beta, c):
+    return c*computeDerivativePhi(point[0], alpha, beta)*point[1]
+
+"""
+For printing out results
+
+Methods:
+    formatPointToPrint
+        formats a point for printing
+    
+        Parameters:
+            p (Point): a point on the elliptic curve
+        Returns:
+            str: the formatted point as a string
+    
+    formatCurveToPrint
+        formats a curve for printing
+    
+        Parameters:
+            c (Elliptic Curve): an elliptic curve
+        Returns:
+            str: the formatted curve as a string
+    
+    printFirstApplication
+        Print the results of the first application of the protocol.
+
+        Parameters:
+            results (list): A list of lists containing results for each iteration.
+            heading (bool): Flag indicating whether to print column headings.
+            
+    printSecondApplication
+        Print the results of the second application of the protocol.
+
+        Parameters:
+            results (list): A list of lists containing results for each iteration.
+            heading (bool): Flag indicating whether to print column headings.
+            
+    printComparison
+        Print a comparison between E_ab and E_ba.
+
+        Parameters:
+            ab (Elliptic Curve): The elliptic curve created by Alice running first, then Bob
+            ba (Elliptic Curve): The elliptic curve created by Bob running first, then Alice
+"""
+def formatPointToPrint(p):
+    if p[0]==" ":
+        return " "
+    formatted = "("+str(p[0]).replace('*','')+", "+str(p[1]).replace('*','')+")"
+    return formatted
+def formatCurveToPrint(c):
+    split_curve = str(c).split()
+    formatted = str(split_curve[4])+"="+str(split_curve[6])+"+"+str(split_curve[8])+"+"+str(split_curve[10])
+    formatted = formatted.replace('*','')
+    return formatted
+def printFirstApplication(list_of_values, heading):
+    if heading:
+        print(("- "*26)+"FIRST APPLICATION"+(" -"*26))
+        print()
+        words = ["Equation of Curve", "P", "Q", "S"]
+        print(words[0].center(30, " ")+words[1].center(30, " ")+words[2].center(30, " ")+words[3].center(30, " "))
+    print("-"*120)
+    for line in list_of_values:
+        words = [formatCurveToPrint(line[0]), formatPointToPrint(line[1]), formatPointToPrint(line[2]), formatPointToPrint(line[3])]
+        print(words[0].center(30, " ")+words[1].center(30, " ")+words[2].center(30, " ")+words[3].center(30, " "))
+    return
+def printSecondApplication(list_of_values, heading):
+    if heading:
+        print()
+        print(("- "*25)+"SECOND APPLICATION"+(" -"*26))
+        print()
+        words = ["Equation of Curve", "S"]
+        print((words[0].center(30, " ")+words[1].center(30, " ")).center(120, " "))
+    print(("-"*65).center(120, " "))
+    for line in list_of_values:
+        words = [formatCurveToPrint(line[0]), formatPointToPrint(line[1])]
+        print((words[0].center(30, " ")+words[1].center(30, " ")).center(120," "))
+    return
+def printComparison(ab, ba):
+    curve_AB = formatCurveToPrint(ab)
+    curve_BA = formatCurveToPrint(ba)
+    length = len(curve_AB)
+    if len(curve_BA)>length:
+        length = len(curve_BA)
+    same = "Not the same curve"
+    if curve_AB==curve_BA:
+        same = "Same curve!"
+    print()
+    print(("- "*27)+"FINAL RESULT"+(" -"*27))
+    print()
+    if length<54:
+        words = ["E_ab", "E_ba", " "]
+        print((words[0].center(length+5, " ")+words[1].center(length+5, " ")+words[2].center(18, " ")).center(120, " "))
+        print(("-"*(length*2+30)).center(120, " "))
+        print((curve_AB.center(length+5, " ")+curve_BA.center(length+5, " ")+same.center(18, " ")).center(120, " "))
+    else:
+        print("E_ab:")
+        print("\t"+curve_AB)
+        print("E_ba:")
+        print("\t"+curve_BA)
+        print("-"*120)
+        print(same.center(120))
+    print()
+    return
+
+def runA1(e, P_A, Q_A, k, P_B, Q_B, a, verbose):
+    """
+    Run the first phase of the protocol for Alice until the key exchange.
+
+    Parameters:
+        e (int): Alice's exponent e_A.
+        P_A (Point): Alice's initial point on the curve.
+        Q_A (Point): Another point on the curve related to Alice.
+        k (int): Alice's secret key.
+        P_B (Point): Bob's initial point on the curve.
+        Q_B (Point): Another point on the curve related to Bob.
+        a (int): Parameter 'a' for the elliptic curve.
+        verbose (bool): Flag for verbose output.
+
+    Returns:
+        The updated points P_B', Q_B', the updated elliptic curve E_A, and the final value of 'a'.
+    """
+    
+    beta = False
+    # List to store results for printing at the end
+    if verbose:
+        list_to_print = []
+    
+    # Compute the first S, a point on the initial elliptic curve
+    S = E_0(computeS(P_A,k,Q_A))
+
+    if verbose:
+        list_to_print.append([E_0, P_B, Q_B, S])
+    
+    # While the chosen exponent is not yet 0
+    while e>=1:
+        e=e-1
+        
+        # Calculate alpha, a, and c (the square root should stay the same)
+        alpha = computeAlpha(S,e)
+        a = computeA(alpha, beta, beta)
+        c = sqrt(alpha)
+        
+        # Create the new elliptic curve from the isogeny, and update P_B and Q_B
+        E = EllipticCurve(F,[0,a,0,1,0])
+        P_B = E(updateX(P_B, alpha, beta),updateY(P_B, alpha, beta, c))
+        Q_B = E(updateX(Q_B, alpha, beta),updateY(Q_B, alpha, beta, c))
+        
+        # If the loop is still iterating, calculate the new S
+        if e>=1:
+            S = E(updateX(S,alpha, beta),updateY(S, alpha, beta, c))
+        else:
+            S = (" "," ") # Placeholder for the final S if e_A is zero
+            
+        # Append results for printing
+        if verbose:
+            list_to_print.append([E, P_B, Q_B, S])
+    if verbose:
+        printFirstApplication(list_to_print, True)
+        
+    # Return the updated values
+    return P_B, Q_B, E, a
+
+def runA2(e, P, Q, k, E, verbose):
+    """
+    Run the second phase of the protocol for Alice, after the key exchange.
+
+    Parameters:
+        e (int): The exponent e_A.
+        P_A_p (Point): Alice's point after the key exchange.
+        Q_A_p (Point): Another point related to Alice after the key exchange.
+        k (int): Alice's secret key.
+        E (EllipticCurve): The elliptic curve from Bob's run.
+        verbose (bool): Flag for verbose output.
+
+    Returns:
+        EllipticCurve: The final elliptic curve after Alice's second run through.
+    """
+    
+    beta = False
+    if verbose:
+        list_to_print = [] # List to store results for printing at the end
+        iteration = 0 # Counter for the iteration number
+        
+    # Computes the first S
+    S = E(computeS(P,k,Q))
+
+    if verbose:
+        list_to_print.append([E, S])
+    
+    # While the chosen exponent is not yet 0
+    while e>=1:
+        e=e-1
+        
+        # Calculate alpha, a, and c (the square root should stay the same)
+        alpha = computeAlpha(S,e)
+        a = computeA(alpha, beta, beta)
+        c = sqrt(alpha)
+        
+        # Create the new elliptic curve
+        E = EllipticCurve(F,[0,a,0,1,0])   
+        
+        # Update S if applicable
+        if e>=1:
+            S = E(updateX(S,alpha, beta),updateY(S, alpha, beta, c))
+        else:
+            S = (" "," ") # Placeholder for the final S if e_A is zero
+        
+        # Append results for printing
+        if verbose:
+            list_to_print.append([E, S])
+            iteration += 1
+    
+    if verbose:
+        printSecondApplication(list_to_print, True)
+    
+    # Return the final elliptic curve
+    return E
+
+def runB1(e, P_A, Q_A, k, P_B, Q_B, a, verbose):
+    """
+    Run the first phase of the protocol for Bob until the key exchange.
+
+    Parameters:
+        e (int): Bob's exponent e_B.
+        P_A (Point): Alice's initial point on the curve.
+        Q_A (Point): Another point on the curve related to Alice.
+        k (int): Bob's secret key.
+        P_B (Point): Bob's initial point on the curve.
+        Q_B (Point): Another point on the curve related to Bob.
+        a (int): Parameter 'a' for the elliptic curve.
+        verbose (bool): Flag for verbose output.
+
+    Returns:
+        The updated points P_A', Q_A', the updated elliptic curve E_B, and the final value of 'a'.
+    """
+    alpha = False
+    
+    # List to store results for printing at the end
+    if verbose:
+        list_to_print = []
+        
+    # Compute the first S, a point on the initial elliptic curve
+    S = E_0(computeS(P_B,k,Q_B))
+
+    if verbose:
+        list_to_print.append([E_0, P_A, Q_A, S])
+    
+    # While the chosen exponent is not yet 0
+    while e>=1:
+        e=e-1
+        
+        # Calculate beta, a, and c
+        beta = computeBeta(S,e)
+        a = computeA(alpha, beta, a)
+        c = beta
+        
+        # Create the new elliptic curve from the isogeny, and update P_A and Q_A
+        E = EllipticCurve(F,[0,a,0,1,0])
+        P_A = E(updateX(P_A, alpha, beta),updateY(P_A, alpha, beta, c))
+        Q_A = E(updateX(Q_A, alpha, beta),updateY(Q_A, alpha, beta, c))
+        
+        # If e_B is still going down, calculate the new S
+        if e>=1:
+            S = E(updateX(S, alpha, beta),updateY(S, alpha, beta, c))
+        else:
+            S = (" "," ") # Placeholder for the final S if e_B is zero
+            
+        # Append results for printing
+        if verbose:
+            list_to_print.append([E, P_A, Q_A, S])
+            
+    if verbose:
+        printFirstApplication(list_to_print, False)  
+        
+    # Return the updated values
+    return P_A, Q_A, E
+
+# Runs the second go through for Bob, after the exchange
+# Parameters: e (e_B), P (P_B'), Q (Q_B'), k (k_B), a (E_a's last a value), E (E_a), F, Verbose
+# Returns: E (E_ab, the curve from Alice's run through, then Bob off of that)
+def runB2(e, P, Q, k, a, E, verbose):
+    """
+    Run the second phase of the protocol for Bob after the key exchange.
+
+    Parameters:
+        e (int): The exponent e_B.
+        P_B_p (Point): Bob's point after the key exchange.
+        Q_B_p (Point): Another point related to Bob after the key exchange.
+        k (int): Bob's secret key.
+        a (int): Parameter 'a' for the elliptic curve
+        E (EllipticCurve): The elliptic curve from Alice's run.
+        verbose (bool): Flag for verbose output.
+
+    Returns:
+        EllipticCurve: The final elliptic curve after Bob's second run through.
+    """
+    alpha = False
+    
+    if verbose:
+        list_to_print = [] # List to store results for printing at the end
+        iteration = 0 # Counter for the iteration number
+    
+    # Compute the first S
+    S = E(computeS(P,k,Q))
+
+    if verbose:
+        list_to_print.append([E, S])
+    
+    # While the chosen exponent is not yet 0
+    while e>=1:
+        e=e-1
+        
+        # Calculate beta, a, and c
+        beta = computeBeta(S,e)
+        a = computeA(alpha, beta, a)
+        c = beta
+        
+        # Create the new elliptic curve
+        E = EllipticCurve(F,[0,a,0,1,0])
+        
+        # Update S if applicable
+        if e>=1:
+            S = E(updateX(S, alpha, beta),updateY(S, alpha, beta, c))
+        else:
+            S = (" "," ") # Placeholder for the final S if e_B is zero
+        
+        # Append results for printing
+        if verbose:
+            list_to_print.append([E, S])
+            iteration += 1
+            
+    if verbose:
+        printSecondApplication(list_to_print, False)
+    
+    # Return the final elliptic curve
+    return E
+
+# Main Function
+def SIDH(e_A, e_B, verbose):
+    """
+    Run the full protocol with Alice and Bob.
+
+    Parameters:
+        e_A (int): Exponent for Alice.
+        e_B (int): Exponent for Bob.
+        verbose (bool): Flag for verbose output.
+
+    Returns:
+        None
+    """
+    k_A = 18
+    k_B = 9
+
+    
+    #Run Alice and Bob by themselves
+    try:
+        P_B_p, Q_B_p, E_A, a_prime = runA1(e_A, P_A, Q_A, k_A, P_B, Q_B, 6, verbose)
+        P_A_p, Q_A_p, E_B = runB1(e_B, P_A, Q_A, k_B, P_B, Q_B, 6, verbose)
+    except ArithmeticError as e:
+        print(f"An error occured and could not continue: {e}")
+        return
+    
+    #Exchange Q, P, and E
+    E_BA = runA2(e_A, P_A_p, Q_A_p, k_A, E_B, verbose)
+    E_AB = runB2(e_B, P_B_p, Q_B_p, k_B, a_prime, E_A, verbose)
+    
+    #Comparing the final curves
+    printComparison(E_AB, E_BA)
+    
+    return P_B_p, Q_B_p, E_A, P_A_p, Q_A_p, E_B
+
+# PUBLIC VALUES FOR SET UP
+e_A = int( input("Alice's number: "))
+e_B = int( input("Bob's number: "))
+p = 2^(e_A)*3^(e_B) - 1 # The p prime
+if not p.is_prime():
+    raise ValueError("Nonvalid e_A, e_B, p=%3d is not a prime"%p)
+F.<i> = GF(p^2, name='i', modulus=x^2+1) # the field the ECs are over
+E_0 = EllipticCurve(F,[0,6,0,1,0]) # starting curve
+P, Q = E_0.gens()
+P_A = 3^(e_B)*P # alice's first point
+P_B = 2^(e_A)*P # bob's first point
+Q_A = 3^(e_B)*Q # alice's second point
+Q_B = 2^(e_A)*Q # bob's second point
+
+print(("- "*29)+"SET UP"+(" -"*29))
+print()
+print(("p = "+ str(int(p))).center(120, " "))
+print(("E_0: "+formatCurveToPrint(E_0)).center(120, " "))
+print(("P_A: "+formatPointToPrint(P_A)).center(60, " ")+("P_B: "+formatPointToPrint(P_B)).center(60, " "))
+print(("Q_A: "+formatPointToPrint(Q_A)).center(60, " ")+("Q_B: "+formatPointToPrint(Q_B)).center(60, " "))
+
+# SECRETS! PUBLIC FOR TESTING ATTACK ONLY
+k_A = random.randint(1, 2^e_A-1) # Alice's secret integer
+k_B = random.randint(1, 3^e_B-1) # Bob's secret integer
+
+print(("k_A: "+str(k_A)).center(60, " ")+("k_B: "+str(k_B)).center(60, " "))
+
+# PUBLIC VALUES FOR TRADE
+P_B_p, Q_B_p, E_A, P_A_p, Q_A_p, E_B = SIDH(e_A, e_B, True) # the traded curves and points
